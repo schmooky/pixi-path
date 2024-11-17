@@ -1,0 +1,15 @@
+{
+    "name": "@pixi-path/example-v7",
+    "version": "1.0.0",
+    "main": "main.js",
+    "scripts": {
+      "dev": "vite"
+    },
+    "dependencies": {
+      "pixi.js": "^7.4.2"
+    },
+    "devDependencies": {
+      "vite": "^3.0.0",
+      "@pixi-text-with-images/v7": "*"
+    }
+  }
