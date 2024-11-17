@@ -2,13 +2,13 @@ import '@pixi/math-extras';
 import {
   Application,
   Assets,
-  Graphics,
-  Sprite,
   Container,
   Point,
   Texture,
   FederatedPointerEvent,
 } from "pixi.js";
+
+import { SmoothGraphics as Graphics } from '@pixi/graphics-smooth';
 
 const imagePaths = {
   "placeholder_dash.png": "placeholder_dash.png",
@@ -32,33 +32,33 @@ async function init(app: Application) {
   const borderRadius = 50;
 
   // Create draggable points
-  const pointASprite = createDraggablePoint(pointA, 0xFF0000);
-  const pointBSprite = createDraggablePoint(pointB, 0x00FF00);
-  const pointCSprite = createDraggablePoint(pointC, 0x0000FF);
+  const pointACircle = createDraggableCircle(pointA, 0xFF0000);
+  const pointBCircle = createDraggableCircle(pointB, 0x00FF00);
+  const pointCCircle = createDraggableCircle(pointC, 0x0000FF);
 
-  pointsContainer.addChild(pointASprite, pointBSprite, pointCSprite);
+  pointsContainer.addChild(pointACircle, pointBCircle, pointCCircle);
 
   // Draw the smooth connection
   function drawConnection() {
     graphics.clear();
-    drawSmoothConnection(graphics,pointA, pointB, pointC, borderRadius, 4, 0x000000);
+    drawSmoothConnection(graphics, pointA, pointB, pointC, borderRadius, 4, 0x000000);
   }
 
   drawConnection();
 
   // Update the points when they are moved
-  pointASprite.on("moved", () => {
-    pointA = { x: pointASprite.x, y: pointASprite.y };
+  pointACircle.on("moved", () => {
+    pointA = { x: pointACircle.x, y: pointACircle.y };
     drawConnection();
   });
 
-  pointBSprite.on("moved", () => {
-    pointB = { x: pointBSprite.x, y: pointBSprite.y };
+  pointBCircle.on("moved", () => {
+    pointB = { x: pointBCircle.x, y: pointBCircle.y };
     drawConnection();
   });
 
-  pointCSprite.on("moved", () => {
-    pointC = { x: pointCSprite.x, y: pointCSprite.y };
+  pointCCircle.on("moved", () => {
+    pointC = { x: pointCCircle.x, y: pointCCircle.y };
     drawConnection();
   });
 }
@@ -72,7 +72,7 @@ async function init(app: Application) {
  * @param {number} lineWidth - The width of the lines
  * @param {number} color - The color of the lines in HEX
  */
- const drawSmoothConnection = (graphics:Graphics, start, corner, end, radius, lineWidth = 5, color = 0x000000) => {
+const drawSmoothConnection = (graphics: Graphics, start, corner, end, radius, lineWidth = 5, color = 0x000000) => {
   // Calculate the direction vectors
   const vec1 = { x: start.x - corner.x, y: start.y - corner.y };
   const vec2 = { x: end.x - corner.x, y: end.y - corner.y };
@@ -80,13 +80,13 @@ async function init(app: Application) {
   // Normalize the vectors
   const len1 = Math.sqrt(vec1.x * vec1.x + vec1.y * vec1.y);
   const len2 = Math.sqrt(vec2.x * vec2.x + vec2.y * vec2.y);
-  const unit1 = new Point( vec1.x / len1, vec1.y / len1 );
-  const unit2 = new Point( vec2.x / len2, vec2.y / len2 );
+  const unit1 = new Point(vec1.x / len1, vec1.y / len1);
+  const unit2 = new Point(vec2.x / len2, vec2.y / len2);
 
-  let balancedRadius = radius * (1-(unit1.dot(unit2)-0.5));
+  let balancedRadius = radius * (1 - (unit1.dot(unit2) - 0.5));
 
-  console.log(unit1.dot(unit2))
-  console.log(`New Radius: ${balancedRadius}`)
+  console.log(unit1.dot(unit2));
+  console.log(`New Radius: ${balancedRadius}`);
 
   // Calculate the tangent points
   const tangentPoint1 = {
@@ -111,46 +111,43 @@ async function init(app: Application) {
   ); // Draw the arc
   // graphics.moveTo(tangentPoint2.x, tangentPoint2.y);
   graphics.lineTo(end.x, end.y); // Draw line to the end point
-}
+};
 
-function createDraggablePoint(position, color) {
-  const pointSprite = new Sprite(
-    Assets.get("placeholder_dash.png") as Texture
-  );
-  pointSprite.interactive = true;
-  pointSprite.eventMode = 'dynamic';
-  pointSprite.anchor.set(0.5);
-  pointSprite.x = position.x;
-  pointSprite.y = position.y;
-  pointSprite.tint = color;
-  pointSprite.height = 128;
-  pointSprite.width = 128;
+function createDraggableCircle(position, color) {
+  const circle = new Graphics();
+  circle.interactive = true;
+  circle.eventMode = 'dynamic';
+  circle.beginFill(color,0.32);
+  circle.drawCircle(0, 0, 16);
+  circle.endFill();
+  circle.x = position.x;
+  circle.y = position.y;
 
   let isDragging = false;
   let previousPosition = new Point();
 
-  pointSprite.addEventListener("pointerdown", (event: FederatedPointerEvent) => {
+  circle.addEventListener("pointerdown", (event: FederatedPointerEvent) => {
     isDragging = true;
     previousPosition.copyFrom(event.data.global);
   });
 
-  pointSprite.addEventListener("pointerup", () => {
+  circle.addEventListener("pointerup", () => {
     isDragging = false;
-    pointSprite.emit("moved");
+    circle.emit("moved");
   });
 
-  pointSprite.addEventListener("pointermove", (event: FederatedPointerEvent) => {
+  circle.addEventListener("pointermove", (event: FederatedPointerEvent) => {
     if (isDragging) {
       const newPosition = event.data.global;
       const delta = newPosition.subtract(previousPosition);
       previousPosition.copyFrom(newPosition);
-      pointSprite.x += delta.x;
-      pointSprite.y += delta.y;
-      pointSprite.emit("moved");
+      circle.x += delta.x;
+      circle.y += delta.y;
+      circle.emit("moved");
     }
   });
 
-  return pointSprite;
+  return circle;
 }
 
 (async () => {

@@ -6,6 +6,7 @@
         "dev": "vite"
     },
     "dependencies": {
+        "@pixi/graphics-smooth": "^1.1.0",
         "@pixi/math-extras": "^7.4.2",
         "pixi.js": "^7.4.2"
     },
