@@ -1,24 +1,67 @@
+import '@pixi/math-extras';
 import {
   Application,
   Assets,
   Graphics,
-  HTMLText,
-  HTMLTextStyle,
   Sprite,
-  TextStyle,
+  Container,
+  Point,
+  Texture,
+  FederatedPointerEvent,
 } from "pixi.js";
 
 const imagePaths = {
-  "green_pipe.webp": "green_pipe.webp",
-  "blue_pipe.webp": "blue_pipe.webp",
-  "gold_moon.webp": "gold_moon.png",
+  "placeholder_dash.png": "placeholder_dash.png",
 };
 
 async function init(app: Application) {
+  // Create a Graphics object
+  const graphics = new Graphics();
+  app.stage.addChild(graphics);
 
-// Create a Graphics object
-const graphics = new Graphics();
-app.stage.addChild(graphics);
+  // Create a Container to hold the points
+  const pointsContainer = new Container();
+  app.stage.addChild(pointsContainer);
+
+  // Define three points
+  let pointA = { x: 350, y: 100 };
+  let pointB = { x: 400, y: 300 };
+  let pointC = { x: 550, y: 100 };
+
+  // Define border radius
+  const borderRadius = 50;
+
+  // Create draggable points
+  const pointASprite = createDraggablePoint(pointA, 0xFF0000);
+  const pointBSprite = createDraggablePoint(pointB, 0x00FF00);
+  const pointCSprite = createDraggablePoint(pointC, 0x0000FF);
+
+  pointsContainer.addChild(pointASprite, pointBSprite, pointCSprite);
+
+  // Draw the smooth connection
+  function drawConnection() {
+    graphics.clear();
+    drawSmoothConnection(graphics,pointA, pointB, pointC, borderRadius, 4, 0x000000);
+  }
+
+  drawConnection();
+
+  // Update the points when they are moved
+  pointASprite.on("moved", () => {
+    pointA = { x: pointASprite.x, y: pointASprite.y };
+    drawConnection();
+  });
+
+  pointBSprite.on("moved", () => {
+    pointB = { x: pointBSprite.x, y: pointBSprite.y };
+    drawConnection();
+  });
+
+  pointCSprite.on("moved", () => {
+    pointC = { x: pointCSprite.x, y: pointCSprite.y };
+    drawConnection();
+  });
+}
 
 /**
  * Function to draw a smooth connection between two lines with a rounded corner
@@ -29,63 +72,85 @@ app.stage.addChild(graphics);
  * @param {number} lineWidth - The width of the lines
  * @param {number} color - The color of the lines in HEX
  */
-function drawSmoothConnection(start, corner, end, radius, lineWidth = 5, color = 0x000000) {
-    // Calculate the direction vectors
-    const vec1 = { x: start.x - corner.x, y: start.y - corner.y };
-    const vec2 = { x: end.x - corner.x, y: end.y - corner.y };
+ const drawSmoothConnection = (graphics:Graphics, start, corner, end, radius, lineWidth = 5, color = 0x000000) => {
+  // Calculate the direction vectors
+  const vec1 = { x: start.x - corner.x, y: start.y - corner.y };
+  const vec2 = { x: end.x - corner.x, y: end.y - corner.y };
 
-    // Normalize the vectors
-    const len1 = Math.sqrt(vec1.x * vec1.x + vec1.y * vec1.y);
-    const len2 = Math.sqrt(vec2.x * vec2.x + vec2.y * vec2.y);
-    const unit1 = { x: vec1.x / len1, y: vec1.y / len1 };
-    const unit2 = { x: vec2.x / len2, y: vec2.y / len2 };
+  // Normalize the vectors
+  const len1 = Math.sqrt(vec1.x * vec1.x + vec1.y * vec1.y);
+  const len2 = Math.sqrt(vec2.x * vec2.x + vec2.y * vec2.y);
+  const unit1 = new Point( vec1.x / len1, vec1.y / len1 );
+  const unit2 = new Point( vec2.x / len2, vec2.y / len2 );
 
-    // Calculate the tangent points
-    const tangentPoint1 = { 
-        x: corner.x + unit1.x * radius, 
-        y: corner.y + unit1.y * radius 
-    };
-    const tangentPoint2 = { 
-        x: corner.x + unit2.x * radius, 
-        y: corner.y + unit2.y * radius 
-    };
+  let balancedRadius = radius * (1-(unit1.dot(unit2)-0.5));
 
-    graphics.lineStyle(lineWidth, color, 1);
-    graphics.moveTo(start.x, start.y); // Move to the start point
-    graphics.lineTo(tangentPoint1.x, tangentPoint1.y); // Draw line to tangent point 1
-    
-    graphics.arcTo(
-        corner.x, corner.y, 
-        tangentPoint2.x, tangentPoint2.y, 
-        radius
-    ); // Draw the arc
-    
-    graphics.lineTo(end.x, end.y); // Draw line to the end point
+  console.log(unit1.dot(unit2))
+  console.log(`New Radius: ${balancedRadius}`)
+
+  // Calculate the tangent points
+  const tangentPoint1 = {
+    x: corner.x + unit1.x * balancedRadius,
+    y: corner.y + unit1.y * balancedRadius,
+  };
+
+  const tangentPoint2 = {
+    x: corner.x + unit2.x * balancedRadius,
+    y: corner.y + unit2.y * balancedRadius,
+  };
+
+  graphics.lineStyle(lineWidth, color, 1);
+  graphics.moveTo(start.x, start.y); // Move to the start point
+  // graphics.lineTo(tangentPoint1.x, tangentPoint1.y); // Draw line to tangent point 1
+  graphics.arcTo(
+    corner.x,
+    corner.y,
+    tangentPoint2.x,
+    tangentPoint2.y,
+    balancedRadius
+  ); // Draw the arc
+  // graphics.moveTo(tangentPoint2.x, tangentPoint2.y);
+  graphics.lineTo(end.x, end.y); // Draw line to the end point
 }
 
-// Example Usage:
+function createDraggablePoint(position, color) {
+  const pointSprite = new Sprite(
+    Assets.get("placeholder_dash.png") as Texture
+  );
+  pointSprite.interactive = true;
+  pointSprite.eventMode = 'dynamic';
+  pointSprite.anchor.set(0.5);
+  pointSprite.x = position.x;
+  pointSprite.y = position.y;
+  pointSprite.tint = color;
+  pointSprite.height = 128;
+  pointSprite.width = 128;
 
-// Define three points
-const pointA = { x: 100, y: 100 };
-const pointB = { x: 400, y: 300 };
-const pointC = { x: 700, y: 100 };
+  let isDragging = false;
+  let previousPosition = new Point();
 
-// Define border radius
-const borderRadius = 50;
+  pointSprite.addEventListener("pointerdown", (event: FederatedPointerEvent) => {
+    isDragging = true;
+    previousPosition.copyFrom(event.data.global);
+  });
 
-// Draw circles to represent the points (for visualization)
-function drawPoint(point, color = 0xFF0000) {
-    graphics.beginFill(color);
-    graphics.drawCircle(point.x, point.y, 5);
-    graphics.endFill();
-}
+  pointSprite.addEventListener("pointerup", () => {
+    isDragging = false;
+    pointSprite.emit("moved");
+  });
 
-drawPoint(pointA, 0xFF0000); // Red
-drawPoint(pointB, 0x00FF00); // Green
-drawPoint(pointC, 0x0000FF); // Blue
+  pointSprite.addEventListener("pointermove", (event: FederatedPointerEvent) => {
+    if (isDragging) {
+      const newPosition = event.data.global;
+      const delta = newPosition.subtract(previousPosition);
+      previousPosition.copyFrom(newPosition);
+      pointSprite.x += delta.x;
+      pointSprite.y += delta.y;
+      pointSprite.emit("moved");
+    }
+  });
 
-// Draw the smooth connection
-drawSmoothConnection(pointA, pointB, pointC, borderRadius, 4, 0x000000);
+  return pointSprite;
 }
 
 (async () => {
@@ -101,7 +166,5 @@ drawSmoothConnection(pointA, pointB, pointC, borderRadius, 4, 0x000000);
     Object.entries(imagePaths).map(async ([key, path]) => Assets.load(path))
   );
 
-
-  init(app)
-  
+  init(app);
 })();
